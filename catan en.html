@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Catan: Новий Світ (5-6 гравців) Генератор</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            display: flex;
+            height: 100vh;
+            background-color: #1a4a6e;
+            color: #fff;
+            overflow: hidden;
+            touch-action: none;
+        }
+        
+        #menu-toggle {
+            display: none;
+            position: fixed;
+            top: 15px;
+            left: 15px;
+            z-index: 1000;
+            background: #e1a95f;
+            color: #000;
+            border: none;
+            border-radius: 5px;
+            padding: 10px 15px;
+            font-size: 18px;
+            font-weight: bold;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+            cursor: pointer;
+        }
+        
+        #overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6);
+            z-index: 8;
+        }
+
+        #sidebar {
+            width: 400px;
+            background: rgba(0, 0, 0, 0.9);
+            padding: 20px;
+            box-sizing: border-box;
+            overflow-y: auto;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.5);
+            z-index: 10;
+            transition: transform 0.3s ease;
+        }
+        h2 { margin-top: 0; font-size: 22px; border-bottom: 2px solid #e1a95f; padding-bottom: 10px; color: #e1a95f;}
+        
+        #btn-close-menu {
+            display: none;
+            width: 100%; margin-bottom: 15px; padding: 10px;
+            background: #444; color: #fff; border: none; border-radius: 5px;
+            font-size: 16px; font-weight: bold; cursor: pointer;
+        }
+        
+        .control-group { margin-bottom: 20px; background: rgba(255, 255, 255, 0.05); padding: 15px; border-radius: 8px; }
+        .control-group label { display: block; margin-bottom: 8px; font-size: 14px; cursor: pointer; }
+        .control-group b { color: #e1a95f; display: block; margin-bottom: 10px; font-size: 16px;}
+        input[type="number"], select, input[type="text"] {
+            width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid #555; border-radius: 4px; background: #222; color: #fff; box-sizing: border-box;
+        }
+        .inline-inputs { display: flex; gap: 10px; }
+        .button-group { display: flex; gap: 10px; margin-bottom: 10px; }
+        
+        .btn-back { padding: 12px 15px; font-size: 16px; font-weight: bold; background-color: #555; color: #fff; border: none; border-radius: 5px; cursor: pointer; white-space: nowrap; }
+        .btn-back:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-gen { flex: 1; padding: 12px; font-size: 16px; font-weight: bold; background-color: #e1a95f; color: #000; border: none; border-radius: 5px; cursor: pointer; }
+        
+        #zoom-controls {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.85);
+            padding: 5px 10px;
+            border-radius: 30px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            z-index: 100;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            backdrop-filter: blur(5px);
+        }
+        #zoom-controls button {
+            background: #e1a95f;
+            color: #000;
+            border: none;
+            border-radius: 50%;
+            width: 32px;
+            height: 32px;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        #zoom-controls button:active { background: #d39546; transform: scale(0.95); }
+        #zoom-level { color: #fff; min-width: 45px; text-align: center; font-weight: bold; font-size: 14px; }
+        #zoom-wrapper { display: flex; align-items: center; gap: 8px; }
+
+        #map-container {
+            flex-grow: 1;
+            overflow: auto;
+            background-color: #1a4a6e;
+            display: flex;
+            position: relative;
+            touch-action: pan-x pan-y;
+        }
+        #map-centerer {
+            margin: auto;
+            padding: 40px;
+        }
+        #map-wrapper {
+            position: relative;
+        }
+        #map {
+            position: absolute;
+            top: 0; left: 0;
+            width: 900px;
+            height: 620px;
+            transform-origin: top left;
+        }
+        
+        .hex {
+            position: absolute;
+            width: 80px;
+            height: 92.37px; 
+            clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+            user-select: none;
+        }
+        
+        .emoji { position: absolute; top: 12px; font-size: 26px; line-height: 1; z-index: 1; }
+        .token {
+            background: #ffebd2; border-radius: 50%; width: 32px; height: 32px;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            font-weight: 900; font-size: 15px; color: #222; border: 2px solid #333;
+            box-shadow: 1px 1px 3px rgba(0,0,0,0.5); position: absolute; top: 62%; left: 50%;
+            transform: translate(-50%, -50%); z-index: 2;
+        }
+        .token.red { color: #d00; }
+        .dots { font-size: 8px; letter-spacing: 1px; margin-top: -3px; line-height: 1;}
+        .token.red .dots { color: #d00; }
+        
+        .port-token {
+            position: absolute;
+            width: 26px; height: 26px;
+            background: #fdf5e6;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 12px; font-weight: bold;
+            border: 2px solid #333;
+            z-index: 4;
+            box-shadow: 1px 1px 4px rgba(0,0,0,0.7);
+            color: #000;
+        }
+
+        .sea { background-color: #2b7a9e; }
+        .desert { background-color: #e3b778; }
+        .gold { background-color: #ffdf00; }
+        .brick { background-color: #c75b39; }
+        .wood { background-color: #3f704d; }
+        .sheep { background-color: #8bab48; }
+        .wheat { background-color: #e8d654; }
+        .ore { background-color: #7b8b8f; }
+        #error-msg { color: #ff6b6b; font-size: 13px; margin-top: 10px; display: none; }
+        .note { font-size: 11px; color: #aaa; margin-top: 4px; font-style: italic; }
+
+        @media (max-width: 800px) {
+            #menu-toggle { display: block; }
+            #btn-close-menu { display: block; }
+            #sidebar {
+                position: fixed; top: 0; left: 0; bottom: 0; width: 360px; max-width: 95vw; transform: translateX(-100%);
+            }
+            #sidebar.open { transform: translateX(0); }
+            #map-container { width: 100vw; }
+            #overlay.open { display: block; }
+        }
+    </style>
+</head>
+<body>
+
+<button id="menu-toggle" onclick="toggleMenu()">⚙️ Меню</button>
+<div id="overlay" onclick="toggleMenu()"></div>
+
+<div id="sidebar">
+    <button id="btn-close-menu" onclick="toggleMenu()">❌ Сховати меню</button>
+    <h2>New World Generator</h2>
+    
+    <div class="control-group">
+        <b>Map Type</b>
+        <label><input type="radio" name="mapType" value="random" checked> 1. Totally random</label>
+        <label><input type="radio" name="mapType" value="islands"> 2. Controlled Islands</label>
+    </div>
+
+    <!-- Режим 2: Контрольовані острови -->
+    <div id="islandSettings" class="control-group" style="display:none; border-left: 3px solid #e1a95f;">
+        <label>Number of foreign islands (1-6):</label>
+        <input type="number" id="numIslands" value="3" min="1" max="6">
+        
+        <label>How do you generate dimensions?</label>
+        <select id="sizeStrategy">
+            <option value="range">Randomly (From and To Hexes)</option>
+            <option value="exact">Exact number (with a comma)</option>
+        </select>
+        
+        <div id="sizeRange" class="inline-inputs">
+            <div><label>From:</label><input type="number" id="minHex" value="1" min="1" max="5"></div>
+            <div><label>To:</label><input type="number" id="maxHex" value="3" min="1" max="5"></div>
+        </div>
+        
+        <div id="sizeExact" style="display:none;">
+            <label>Hexes per island (e.g., 1, 2, 4):</label>
+            <input type="text" id="exactSizes" value="1,2,2">
+        </div>
+        
+        <div style="margin-top: 12px; border-top: 1px solid #444; padding-top: 10px;">
+            <label style="cursor: pointer; display: block; margin-bottom: 5px;">
+                <input type="radio" name="desertMode" value="3" checked> Separate the islands with a desert (3)
+            </label>
+            <label style="cursor: pointer; display: block; margin-bottom: 5px;">
+                <input type="radio" name="desertMode" value="5"> Separate the islands with a desert (5 islands, −1 sea, −1 gold)
+            </label>
+            <label style="cursor: pointer; display: block;">
+                <input type="radio" name="desertMode" value="none"> Nothing (3 random deserts on the main island)
+            </label>
+        </div>
+        
+        <label style="margin-top: 12px; cursor: pointer;">
+            <input type="checkbox" id="goldForeignOnly" checked> Gold ONLY on foreign islands
+        </label>
+        <div class="note" style="margin-top: 3px;">If it's physically impossible, the gold hexes can be placed next to each other.</div>
+    </div>
+
+    <div class="control-group">
+        <b>Room Assignments</b>
+        <label><input type="radio" name="numType" value="spiral" checked> Spiral / Alphabet</label>
+        <label><input type="radio" name="numType" value="random"> Totally random</label>
+    </div>
+
+    <div class="button-group">
+        <button id="btnBack" class="btn-back" onclick="goBack()" disabled>⬅ Back</button>
+        <button class="btn-gen" onclick="confirmGenerate()">GENERATE</button>
+    </div>
+    
+    <button class="btn-gen" style="width: 100%; margin-bottom: 10px; background-color: #6da2c4; color: #fff; border: 1px solid #4a7d9e;" onclick="placePortsBtnClick()">⚓ CONFIGURE PORTS</button>
+    
+    <div id="error-msg"></div>
+</div>
+
+<div id="map-container">
+    <div id="map-centerer">
+        <div id="map-wrapper">
+            <div id="map"></div>
+        </div>
+    </div>
+</div>
+
+<div id="zoom-controls">
+    <button onclick="toggleZoom()" id="btn-toggle-zoom" style="border-radius: 15px; font-size: 14px; width: auto; padding: 0 10px;">👁️</button>
+    <div id="zoom-wrapper">
+        <button onclick="zoomMap(-0.15)">➖</button>
+        <span id="zoom-level">100%</span>
+        <button onclick="zoomMap(0.15)">➕</button>
+        <button onclick="fitMap()" title="Fit to screen">🔲</button>
+    </div>
+</div>
+
+<script>
+const TOTAL_HEXES = 63;
+const ROW_LAYOUT = [8, 9, 10, 9, 10, 9, 8];
+const TERRAIN_POOL_RANDOM = { sea: 21, desert: 3, gold: 4, brick: 7, wood: 7, sheep: 7, wheat: 7, ore: 7 };
+const TERRAIN_POOL_3DESERT = { sea: 21, desert: 3, gold: 4, brick: 7, wood: 7, sheep: 7, wheat: 7, ore: 7 };
+const TERRAIN_POOL_5DESERT = { sea: 20, desert: 5, gold: 3, brick: 7, wood: 7, sheep: 7, wheat: 7, ore: 7 };
+const NUMBER_POOL = [2,2,3,3,3,4,4,4,4,5,5,5,5,5,6,6,6,6,6,8,8,8,8,8,9,9,9,9,9,10,10,10,10,11,11,11,11,12,12];
+const EMOJIS = { sea:'🌊', desert:'🏜️', gold:'🪙', brick:'🧱', wood:'🌲', sheep:'🐑', wheat:'🌾', ore:'⛰️' };
+const PORTS = ['3:1','3:1','3:1','3:1','3:1','🐑','🐑','🧱','🌲','🌾','⛰️'];
+
+let hexGrid = [];
+let mapHistory = [];
+let activePorts = [];
+let currentZoom = 1.0;
+
+function toggleZoom() {
+    let zw = document.getElementById('zoom-wrapper');
+    if(zw.style.display === 'none') { zw.style.display='flex'; document.getElementById('btn-toggle-zoom').innerText='👁️'; }
+    else { zw.style.display='none'; document.getElementById('btn-toggle-zoom').innerText='🔍'; }
+}
+function zoomMap(delta) {
+    currentZoom += delta;
+    if(currentZoom < 0.15) currentZoom = 0.15;
+    if(currentZoom > 2.5) currentZoom = 2.5;
+    applyZoom();
+}
+function fitMap() {
+    const container = document.getElementById('map-container');
+    const padW = window.innerWidth <= 800 ? 20 : 80;
+    const padH = window.innerWidth <= 800 ? 120 : 100;
+    const scaleW = (container.clientWidth - padW) / 900;
+    const scaleH = (container.clientHeight - padH) / 620;
+    currentZoom = Math.min(scaleW, scaleH);
+    if(currentZoom > 1.2) currentZoom = 1.2;
+    if(currentZoom < 0.15) currentZoom = 0.15;
+    applyZoom();
+}
+function applyZoom() {
+    const wrapper = document.getElementById('map-wrapper');
+    const map = document.getElementById('map');
+    wrapper.style.width = `${900 * currentZoom}px`;
+    wrapper.style.height = `${620 * currentZoom}px`;
+    map.style.transform = `scale(${currentZoom})`;
+    document.getElementById('zoom-level').innerText = `${Math.round(currentZoom * 100)}%`;
+}
+
+const mapContainer = document.getElementById('map-container');
+let initialPinchDist = 0, initialPinchZoom = 1;
+mapContainer.addEventListener('touchstart', e => {
+    if(e.touches.length === 2) {
+        initialPinchDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+        initialPinchZoom = currentZoom;
+    }
+});
+mapContainer.addEventListener('touchmove', e => {
+    if(e.touches.length === 2) { e.preventDefault();
+        const currentDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+        currentZoom = initialPinchZoom * (currentDist / initialPinchDist);
+        if(currentZoom < 0.15) currentZoom = 0.15;
+        if(currentZoom > 2.5) currentZoom = 2.5;
+        applyZoom();
+    }
+}, {passive: false});
+
+function toggleMenu() {
+    document.getElementById('sidebar').classList.toggle('open');
+    document.getElementById('overlay').classList.toggle('open');
+}
+function closeMenuIfMobile() { if(window.innerWidth <= 800) { document.getElementById('sidebar').classList.remove('open'); document.getElementById('overlay').classList.remove('open'); }}
+
+document.querySelectorAll('input[name="mapType"]').forEach(el => {
+    el.addEventListener('change', e => {
+        document.getElementById('islandSettings').style.display = (e.target.value === 'islands') ? 'block' : 'none';
+    });
+});
+document.getElementById('sizeStrategy').addEventListener('change', e => {
+    document.getElementById('sizeRange').style.display = e.target.value === 'range' ? 'flex' : 'none';
+    document.getElementById('sizeExact').style.display = e.target.value === 'exact' ? 'block' : 'none';
+});
+
+function confirmGenerate() {
+    if(hexGrid.length > 0) {
+        let isConfirmed = confirm("Generate a new map? (The current one will be saved in the history)");
+        if(!isConfirmed) return;
+        mapHistory.push({
+            grid: JSON.parse(JSON.stringify(hexGrid)),
+            ports: JSON.parse(JSON.stringify(activePorts))
+        });
+        updateBackButton();
+    }
+    generateMap();
+    closeMenuIfMobile();
+    setTimeout(fitMap, 50);
+}
+
+function goBack() {
+    if(mapHistory.length > 0) {
+        let state = mapHistory.pop();
+        hexGrid = state.grid || state;
+        activePorts = state.ports || [];
+        updateBackButton();
+        renderMap();
+        closeMenuIfMobile();
+    }
+}
+function updateBackButton() { document.getElementById('btnBack').disabled = (mapHistory.length === 0); }
+
+function buildGrid() {
+    hexGrid = [];
+    const hexW = 80, hexH = 92.37, yOffset = hexH * 0.75;
+    let idCnt = 0;
+    for(let r = 0; r < ROW_LAYOUT.length; r++) {
+        let cols = ROW_LAYOUT[r], rowIndent = (r === 0 || r === 6) ? hexW : (r % 2 === 1) ? hexW * 0.5 : 0;
+        for(let c = 0; c < cols; c++) {
+            hexGrid.push({
+                id: idCnt++, row: r, col: c,
+                x: rowIndent + c * hexW, y: r * yOffset,
+                terrain: null, number: null, islandId: null, neighbors: [],
+                isMain: false
+            });
+        }
+    }
+    for(let i = 0; i < hexGrid.length; i++) {
+        for(let j = 0; j < hexGrid.length; j++) {
+            if(i === j) continue;
+            let dx = hexGrid[i].x - hexGrid[j].x, dy = hexGrid[i].y - hexGrid[j].y;
+            if(Math.sqrt(dx*dx + dy*dy) < hexW * 1.2) hexGrid[i].neighbors.push(j);
+        }
+    }
+}
+
+function shuffle(arr) { for(let i = arr.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]]; } return arr; }
+function getDots(num) { return "•".repeat({2:1,3:2,4:3,5:4,6:5,8:5,9:4,10:3,11:2,12:1}[num] || 1); }
+function showError(msg) { const el = document.getElementById('error-msg'); if(msg) { el.innerText = msg; el.style.display = 'block'; } else { el.style.display = 'none'; } }
+
+function generateMap() {
+    showError(false); buildGrid();
+    activePorts = []; 
+    
+    const mapType = document.querySelector('input[name="mapType"]:checked').value;
+    if(mapType === 'random') generateFullRandomTerrain();
+    else if(mapType === 'islands') generateControlledIslands();
+    
+    assignNumbers();
+    renderMap();
+}
+
+function generateFullRandomTerrain() {
+    let pool = [];
+    for(const [res, count] of Object.entries(TERRAIN_POOL_RANDOM)) { for(let i = 0; i < count; i++) pool.push(res); }
+    shuffle(pool);
+    hexGrid.forEach((h, i) => { h.terrain = pool[i]; h.isMain = (h.terrain !== 'sea' && h.terrain !== 'desert'); });
+}
+
+function generateControlledIslands() {
+    let numIslands = Math.min(parseInt(document.getElementById('numIslands').value) || 3, 6);
+    numIslands = Math.max(numIslands, 1);
+    let sizeStrategy = document.getElementById('sizeStrategy').value;
+    let islandSizes = [];
+    if(sizeStrategy === 'range') {
+        let mn = parseInt(document.getElementById('minHex').value) || 1;
+        let mx = parseInt(document.getElementById('maxHex').value) || 3;
+        if(mn > mx) [mn, mx] = [mx, mn];
+        for(let i = 0; i < numIslands; i++) islandSizes.push(Math.floor(Math.random() * (mx - mn + 1)) + mn);
+    } else {
+        islandSizes = document.getElementById('exactSizes').value.split(',').map(n => parseInt(n.trim())).filter(n => !isNaN(n) && n > 0);
+        numIslands = islandSizes.length;
+    }
+
+    let totalForeign = islandSizes.reduce((a,b) => a + b, 0);
+    
+    let desertMode = document.querySelector('input[name="desertMode"]:checked')?.value || '3';
+    let desertNum = (desertMode === '5') ? 5 : 3;
+    let poolKey = (desertMode === '5') ? TERRAIN_POOL_5DESERT : TERRAIN_POOL_3DESERT;
+    let seaCount = poolKey.sea;
+
+    let mainIslandSize = TOTAL_HEXES - seaCount - totalForeign;
+    if (desertMode !== 'none') {
+        mainIslandSize -= desertNum;
+    }
+
+    if(mainIslandSize < 1) { showError("Error: The dimensions are too large!"); generateFullRandomTerrain(); return; }
+
+    let bestLayout = null;
+    for(let attempt = 0; attempt < 500; attempt++) {
+        hexGrid.forEach(h => { h.islandId = null; });
+
+        let configs = [{ id: -1, target: mainIslandSize, current: 0 }];
+        islandSizes.forEach((sz, idx) => configs.push({ id: idx + 1, target: sz, current: 0 }));
+
+        let allSeeded = true;
+        for(let c of configs) {
+            let placed = false, tries = 0;
+            while(!placed && tries < 100) {
+                let h = hexGrid[Math.floor(Math.random() * hexGrid.length)];
+                if(h.islandId === null && !h.neighbors.some(n => hexGrid[n].islandId !== null)) {
+                    h.islandId = c.id; c.current = 1; placed = true;
+                }
+                tries++;
+            }
+            if(!placed) { allSeeded = false; break; }
+        }
+        if(!allSeeded) continue;
+
+        let growing = true;
+        while(growing) {
+            growing = false;
+            let mainConfig = configs[0];
+            if(mainConfig.current < mainConfig.target) {
+                let candidates = getGrowCandidates(mainConfig.id, configs);
+                if(candidates.length > 0) {
+                    let pick = candidates[Math.floor(Math.random() * candidates.length)];
+                    pick.islandId = mainConfig.id; mainConfig.current++; growing = true;
+                }
+            }
+            for(let i = 1; i < configs.length; i++) {
+                let c = configs[i];
+                if(c.current < c.target) {
+                    let cands = getGrowCandidates(c.id, configs);
+                    if(cands.length > 0) {
+                        let pick = cands[Math.floor(Math.random() * cands.length)];
+                        pick.islandId = c.id; c.current++; growing = true;
+                    }
+                }
+            }
+        }
+
+        if(configs.every(c => c.current === c.target)) {
+            bestLayout = hexGrid.map(h => h.islandId);
+            break;
+        }
+    }
+
+    if(!bestLayout) {
+        showError("We weren't able to arrange the islands perfectly—so we're settling for a compromise.");
+        generateFullRandomTerrain();
+        return;
+    }
+
+    hexGrid.forEach((h, i) => h.islandId = bestLayout[i]);
+    hexGrid.forEach(h => h.isMain = (h.islandId === -1));
+
+    hexGrid.forEach(h => {
+        if(h.terrain === null && h.islandId === null) {
+            h.terrain = 'sea';
+        }
+    });
+
+    if (desertMode === 'none') {
+        let mainHexes = hexGrid.filter(h => h.islandId === -1);
+        shuffle(mainHexes);
+        for(let i = 0; i < desertNum && i < mainHexes.length; i++) {
+            mainHexes[i].terrain = 'desert';
+        }
+    } else {
+        let seaHexes = hexGrid.filter(h => h.terrain === 'sea');
+        shuffle(seaHexes);
+
+        let desertsPlaced = 0;
+        let validDesertPositions = [];
+
+        for(let h of seaHexes) {
+            let touchesMain = h.neighbors.some(n => hexGrid[n].islandId === -1);
+            let touchesForeign = h.neighbors.some(n => hexGrid[n].islandId > 0);
+            if(touchesMain && touchesForeign) {
+                validDesertPositions.push(h);
+            }
+        }
+
+        shuffle(validDesertPositions);
+        for(let i = 0; i < Math.min(desertNum, validDesertPositions.length); i++) {
+            validDesertPositions[i].terrain = 'desert';
+            desertsPlaced++;
+        }
+
+        if(desertsPlaced < desertNum) {
+            let remainingSea = seaHexes.filter(h => h.terrain === 'sea');
+            shuffle(remainingSea);
+            for(let h of remainingSea) {
+                if(desertsPlaced >= desertNum) break;
+                h.terrain = 'desert';
+                desertsPlaced++;
+            }
+        }
+    }
+
+    let isGoldOnlyForeign = document.getElementById('goldForeignOnly').checked;
+    let resPool = { ...poolKey };
+    delete resPool.sea; delete resPool.desert;
+
+    let allLandHexes = hexGrid.filter(h => h.terrain !== 'sea' && h.terrain !== 'desert');
+    let foreignLandHexes = hexGrid.filter(h => h.isMain === false && h.terrain !== 'sea' && h.terrain !== 'desert');
+
+    if(isGoldOnlyForeign) {
+        let goldToPlace = Math.min(resPool.gold, foreignLandHexes.length);
+        if(goldToPlace > 0) {
+            let goldPositions = placeGoldSpaced(foreignLandHexes, goldToPlace);
+            for(let pos of goldPositions) pos.terrain = 'gold';
+            resPool.gold -= goldToPlace;
+        }
+    }
+
+    let flatRes = [];
+    for(const [res, count] of Object.entries(resPool)) { for(let i = 0; i < count; i++) flatRes.push(res); }
+    shuffle(flatRes);
+
+    let remainingLand = allLandHexes.filter(h => !(h.terrain === 'gold' || h.terrain === 'desert'));
+    for(let i = 0; i < remainingLand.length && i < flatRes.length; i++) {
+        remainingLand[i].terrain = flatRes[i];
+    }
+
+    fixDesertPlacement();
+}
+
+function getGrowCandidates(islandId, configs) {
+    let candidates = [];
+    let islandHexes = hexGrid.filter(h => h.islandId === islandId);
+    for(let h of islandHexes) {
+        for(let nIdx of h.neighbors) {
+            let n = hexGrid[nIdx];
+            if(n.islandId === null && !candidates.includes(n)) {
+                let touchesOtherIsland = n.neighbors.some(nn => hexGrid[nn].islandId !== null && hexGrid[nn].islandId !== islandId);
+                if(!touchesOtherIsland) candidates.push(n);
+            }
+        }
+    }
+    return candidates;
+}
+
+function placeGoldSpaced(foreignLandHexes, count) {
+    if(count <= 1) return foreignLandHexes.slice(0, 1);
+    if(foreignLandHexes.length <= count) return foreignLandHexes.slice();
+
+    let selected = [];
+    let available = foreignLandHexes.slice();
+
+    let firstIdx = Math.floor(Math.random() * available.length);
+    selected.push(available[firstIdx]);
+    available.splice(firstIdx, 1);
+
+    while(selected.length < count && available.length > 0) {
+        let best = null, bestDist = -1;
+        for(let i = 0; i < available.length; i++) {
+            let h = available[i];
+            let minDist = Infinity;
+            for(let s of selected) {
+                let d = hexDistance(s, h);
+                if(d < minDist) minDist = d;
+            }
+            if(minDist > bestDist) { bestDist = minDist; best = i; }
+        }
+        if(bestDist < 2 && bestDist > 0) {
+            let idx = Math.floor(Math.random() * available.length);
+            selected.push(available[idx]);
+            available.splice(idx, 1);
+        } else {
+            selected.push(available[best]);
+            available.splice(best, 1);
+        }
+    }
+    return selected;
+}
+
+function hexDistance(a, b) {
+    return Math.abs(a.row - b.row) + Math.abs(a.col - b.col);
+}
+
+function fixDesertPlacement() {
+    let foreignDeserts = hexGrid.filter(h => h.islandId > 0 && h.terrain === 'desert');
+    if(foreignDeserts.length === 0) return;
+
+    let remainingResPool = { gold: 4, brick: 7, wood: 7, sheep: 7, wheat: 7, ore: 7 };
+    if(document.querySelector('input[name="desertMode"]:checked')?.value === '5') {
+        remainingResPool = { gold: 3, brick: 7, wood: 7, sheep: 7, wheat: 7, ore: 7 };
+    }
+    let allRes = [];
+    for(const [res, count] of Object.entries(remainingResPool)) {
+        for(let i = 0; i < count; i++) allRes.push(res);
+    }
+    shuffle(allRes);
+    let resIdx = 0;
+
+    for(let d of foreignDeserts) {
+        if(resIdx < allRes.length) {
+            d.terrain = allRes[resIdx++];
+        } else {
+            d.terrain = 'desert';
+        }
+    }
+
+    let nullHexes = hexGrid.filter(h => h.terrain === null);
+    if(nullHexes.length > 0) {
+        let nullRes = ['brick', 'wood', 'sheep', 'wheat', 'ore', 'gold'];
+        for(let h of nullHexes) {
+            h.terrain = nullRes[Math.floor(Math.random() * nullRes.length)];
+        }
+    }
+}
+
+function placePortsBtnClick() {
+    if (!hexGrid || hexGrid.length === 0) {
+        showError("First, generate a map!");
+        return;
+    }
+    
+    activePorts = [];
+    let coastlines = [];
+    const dirs = [0, 60, 120, 180, 240, 300].map(a => a * Math.PI / 180);
+    
+    hexGrid.forEach(h => {
+        if (h.isMain && h.terrain !== 'sea' && h.terrain !== null) {
+            let hasSeaOrEmpty = [true, true, true, true, true, true];
+            
+            h.neighbors.forEach(nIdx => {
+                let n = hexGrid[nIdx];
+                let dx = n.x - h.x;
+                let dy = n.y - h.y;
+                let ang = Math.atan2(dy, dx);
+                if (ang < 0) ang += 2 * Math.PI;
+                
+                let bestDirIdx = 0;
+                let minDiff = Infinity;
+                for(let i=0; i<6; i++) {
+                    let diff = Math.abs(ang - dirs[i]);
+                    diff = Math.min(diff, 2 * Math.PI - diff);
+                    if (diff < minDiff) { minDiff = diff; bestDirIdx = i; }
+                }
+                
+                if (n.terrain !== 'sea') {
+                    hasSeaOrEmpty[bestDirIdx] = false;
+                }
+            });
+            
+            for(let i=0; i<6; i++) {
+                if (hasSeaOrEmpty[i]) {
+                    let hx = h.x + 40; 
+                    let hy = h.y + 46.18;
+                    let radius = 48;
+                    let px = hx + Math.cos(dirs[i]) * radius;
+                    let py = hy + Math.sin(dirs[i]) * radius;
+                    
+                    coastlines.push({ hexId: h.id, angle: dirs[i], px: px, py: py });
+                }
+            }
+        }
+    });
+    
+    let portPool = [...PORTS];
+    shuffle(portPool);
+    
+    let distanceThreshold = 75; 
+    let selectedPositions = [];
+    let attempts = 0;
+    
+    while (selectedPositions.length < 11 && distanceThreshold > 0 && attempts < 200) {
+        selectedPositions = [];
+        shuffle(coastlines);
+        
+        for (let coast of coastlines) {
+            let isValid = true;
+            for (let s of selectedPositions) {
+                let dist = Math.hypot(coast.px - s.px, coast.py - s.py);
+                if (dist < distanceThreshold) {
+                    isValid = false;
+                    break;
+                }
+            }
+            
+            if (isValid) {
+                selectedPositions.push(coast);
+                if (selectedPositions.length >= 11) break;
+            }
+        }
+        
+        if (selectedPositions.length < 11) {
+            distanceThreshold -= 2;
+        }
+        attempts++;
+    }
+    
+    for (let i = 0; i < selectedPositions.length; i++) {
+        activePorts.push({
+            hexId: selectedPositions[i].hexId,
+            angle: selectedPositions[i].angle,
+            type: portPool[i % portPool.length]
+        });
+    }
+    
+    renderMap();
+    closeMenuIfMobile();
+}
+
+function assignNumbers() {
+    let landHexes = hexGrid.filter(h =>
+        h.terrain !== 'sea' &&
+        h.terrain !== 'desert' &&
+        h.terrain !== null
+    );
+    let numType = document.querySelector('input[name="numType"]:checked').value;
+    let pool = [...NUMBER_POOL]; shuffle(pool);
+
+    if(numType === 'random') {
+        landHexes.forEach((h, i) => h.number = pool[i]);
+    } else {
+        let cx = landHexes.reduce((s, h) => s + h.x, 0) / landHexes.length;
+        let cy = landHexes.reduce((s, h) => s + h.y, 0) / landHexes.length;
+        landHexes.forEach(h => {
+            h.dist = Math.sqrt((h.x - cx) ** 2 + (h.y - cy) ** 2);
+            h.angle = Math.atan2(h.y - cy, h.x - cx);
+        });
+        landHexes.sort((a, b) => {
+            let ringA = Math.round(a.dist / 70), ringB = Math.round(b.dist / 70);
+            return ringA !== ringB ? ringB - ringA : a.angle - b.angle;
+        });
+        if(Math.random() > 0.5) landHexes.reverse();
+        let shift = Math.floor(Math.random() * landHexes.length);
+        let path = landHexes.slice(shift).concat(landHexes.slice(0, shift));
+        path.forEach((h, i) => h.number = pool[i]);
+    }
+
+    let conflict = true, maxIters = 500;
+    while(conflict && maxIters > 0) {
+        conflict = false; maxIters--;
+        for(let i = 0; i < landHexes.length; i++) {
+            let h1 = landHexes[i];
+            if(h1.number !== 6 && h1.number !== 8) continue;
+            let neighbors = h1.neighbors.map(n => hexGrid[n]).filter(h =>
+                h.terrain !== 'sea' && h.terrain !== 'desert' && h.terrain !== null
+            );
+            for(let h2 of neighbors) {
+                if(h2.number === 6 || h2.number === 8) {
+                    conflict = true;
+                    let cands = landHexes.filter(c =>
+                        c !== h1 && c !== h2 && c.number !== 6 && c.number !== 8
+                    );
+                    if(cands.length > 0) {
+                        let t = cands[Math.floor(Math.random() * cands.length)];
+                        let tmp = h1.number; h1.number = t.number; t.number = tmp;
+                    }
+                    break;
+                }
+            }
+            if(conflict) break;
+        }
+    }
+}
+
+function renderMap() {
+    const container = document.getElementById('map');
+    container.innerHTML = '';
+
+    hexGrid.forEach(hex => {
+        let el = document.createElement('div');
+        el.className = `hex ${hex.terrain}`;
+        el.style.left = `${hex.x}px`;
+        el.style.top = `${hex.y}px`;
+
+        let content = `<div class="emoji">${EMOJIS[hex.terrain] || '❓'}</div>`;
+
+        if(hex.terrain !== 'sea' && hex.terrain !== 'desert' && hex.number) {
+            content += `<div class="token ${hex.number === 6 || hex.number === 8 ? 'red' : ''}">${hex.number}<div class="dots">${getDots(hex.number)}</div></div>`;
+        }
+
+        el.innerHTML = content;
+        container.appendChild(el);
+    });
+    
+    activePorts.forEach(port => {
+        let hex = hexGrid[port.hexId];
+        let hx = hex.x + 40; 
+        let hy = hex.y + 46.18; 
+        let radius = 48; 
+        
+        let px = hx + Math.cos(port.angle) * radius - 13; 
+        let py = hy + Math.sin(port.angle) * radius - 13;
+        
+        let portEl = document.createElement('div');
+        portEl.className = 'port-token';
+        portEl.style.left = `${px}px`;
+        portEl.style.top = `${py}px`;
+        portEl.innerText = port.type;
+        container.appendChild(portEl);
+    });
+}
+
+window.onload = () => { generateMap(); setTimeout(fitMap, 100); };
+</script>
+</body>
+</html>
